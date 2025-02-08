@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const dbURL = "postgres://postgres:mysecretpassword@localhost:5433/debezium"
+const dbURL = "postgres://user:pass@localhost:5432/debezium"
 
 func main() {
 	conn, err := pgx.Connect(context.Background(), dbURL)
@@ -70,7 +70,7 @@ func createTableIfNotExists(conn *pgx.Conn) error {
 	createTable := `
 CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
     id SERIAL PRIMARY KEY,
-    payload TEXT NOT NULL,
+    payload jsonb NOT NULL,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
     aggregate_id BIGINT NOT NULL,
     type VARCHAR(255) NOT NULL
