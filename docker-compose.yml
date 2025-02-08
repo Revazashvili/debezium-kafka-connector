@@ -1,0 +1,21 @@
+version: '3.5'
+
+services:
+  debezium-db:
+    container_name: debezium-db
+    image: postgres
+    restart: always
+    ports:
+      - "5433:5432"
+    volumes:
+      - ~/temp/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_USER=postgres
+    command: ["postgres", "-c", "wal_level=logical"]
+    networks:
+      - debezium
+    
+networks:
+  debezium:
+    name: debezium_network
