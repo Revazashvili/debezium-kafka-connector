@@ -12,6 +12,7 @@ services:
     environment:
       - POSTGRES_PASSWORD=mysecretpassword
       - POSTGRES_USER=postgres
+      - POSTGRES_DB=debezium
     command: ["postgres", "-c", "wal_level=logical"]
     networks:
       - debezium
