@@ -17,7 +17,7 @@
   "transforms.outbox.table.field.event.payload": "payload",
   "transforms.outbox.table.expand.json.payload": true,
   "transforms.outbox.route.by.field": "type",
-  "transforms.outbox.route.topic.replacement": "${routedByValue}.events",
+  "transforms.outbox.route.topic.replacement": "products.${routedByValue}",
   "transforms.outbox.table.fields.additional.placement": "type:header:eventType",
   "value.converter":"org.apache.kafka.connect.json.JsonConverter",
   "value.converter.schemas.enable": false,
