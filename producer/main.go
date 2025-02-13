@@ -3,70 +3,86 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/revazashvili/debezium-kafka-connector/events"
 	"os"
-	"time"
 )
 
 const dbURL = "postgres://user:pass@localhost:5432/debezium"
 
 func main() {
-	conn, err := pgx.Connect(context.Background(), dbURL)
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 	}
+	defer pool.Close()
 
-	err = createSchemaIfNotExists(conn)
+	err = createSchemaIfNotExists(pool, ctx)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to create schema: %v\n", err)
 	}
 
-	err = createTableIfNotExists(conn)
+	err = createTableIfNotExists(pool, ctx)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to create table: %v\n", err)
 	}
 
-	for {
-		time.Sleep(time.Second * 3)
-
-		es := events.GenerateEvents()
-		err = insertOutboxMessages(conn, es)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
-		}
-
-		fmt.Println("Successfully inserted outbox messages")
+	es := events.GenerateEvents()
+	err = insertOutboxMessages(pool, es, ctx)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+		return
 	}
+
+	fmt.Println("Successfully inserted outbox messages")
+
+	//for {
+	//	time.Sleep(time.Second * 3)
+	//
+	//	es := events.GenerateEvents()
+	//	err = insertOutboxMessages(pool, es, ctx)
+	//	if err != nil {
+	//		_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+	//		return
+	//	}
+	//
+	//	fmt.Println("Successfully inserted outbox messages")
+	//}
 }
 
-func insertOutboxMessages(conn *pgx.Conn, messages []events.OutboxMessage) error {
+func insertOutboxMessages(pool *pgxpool.Pool, messages []events.OutboxMessage, ctx context.Context) error {
 	sql := `INSERT INTO outbox.outbox_messages (payload, timestamp, aggregate_id, type) VALUES ($1, $2, $3, $4)`
 
-	batch := &pgx.Batch{}
-	for _, msg := range messages {
-		batch.Queue(sql, msg.Payload, msg.Timestamp, msg.AggregateId, msg.Type)
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
 	}
+	defer conn.Release()
 
-	br := conn.SendBatch(context.Background(), batch)
-	defer func(br pgx.BatchResults) {
-		err := br.Close()
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Unable to close batch: %v\n", err)
-		}
-	}(br)
+	tx, err := conn.Begin(ctx)
 
-	// Consume batch results
-	for range messages {
-		_, err := br.Exec()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, msg := range messages {
+		_, err := tx.Exec(ctx, sql, msg.Payload, msg.Timestamp, msg.AggregateId, msg.Type)
 		if err != nil {
 			return err
 		}
 	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func createTableIfNotExists(conn *pgx.Conn) error {
+func createTableIfNotExists(pool *pgxpool.Pool, ctx context.Context) error {
 	createTable := `
 CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
     id SERIAL PRIMARY KEY,
@@ -75,7 +91,14 @@ CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
     aggregate_id BIGINT NOT NULL,
     type VARCHAR(255) NOT NULL
 );`
-	_, err := conn.Exec(context.Background(), createTable)
+
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	_, err = conn.Exec(ctx, createTable)
 	if err != nil {
 		return err
 	}
@@ -83,10 +106,16 @@ CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
 	return nil
 }
 
-func createSchemaIfNotExists(con *pgx.Conn) error {
+func createSchemaIfNotExists(pool *pgxpool.Pool, ctx context.Context) error {
 	createSchema := "CREATE SCHEMA IF NOT EXISTS outbox"
 
-	_, err := con.Exec(context.Background(), createSchema)
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	_, err = conn.Exec(ctx, createSchema)
 	if err != nil {
 		return err
 	}
