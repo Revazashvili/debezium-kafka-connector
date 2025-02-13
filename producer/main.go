@@ -18,14 +18,9 @@ func main() {
 	}
 	defer pool.Close()
 
-	err = createSchemaIfNotExists(pool, ctx)
+	err = setupTable(pool, ctx)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to create schema: %v\n", err)
-	}
-
-	err = createTableIfNotExists(pool, ctx)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to create table: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to setup table: %v\n", err)
 	}
 
 	es := events.GenerateEvents()
@@ -82,8 +77,8 @@ func insertOutboxMessages(pool *pgxpool.Pool, messages []events.OutboxMessage, c
 	return nil
 }
 
-func createTableIfNotExists(pool *pgxpool.Pool, ctx context.Context) error {
-	createTable := `
+const (
+	createTable = `
 CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
     id SERIAL PRIMARY KEY,
     payload jsonb NOT NULL,
@@ -92,30 +87,32 @@ CREATE TABLE IF NOT EXISTS outbox.outbox_messages (
     type VARCHAR(255) NOT NULL
 );`
 
-	conn, err := pool.Acquire(ctx)
+	createSchema = "CREATE SCHEMA IF NOT EXISTS outbox"
+)
+
+func setupTable(pool *pgxpool.Pool, ctx context.Context) error {
+	c, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
 	}
-	defer conn.Release()
+	defer c.Release()
 
-	_, err = conn.Exec(ctx, createTable)
+	tx, err := c.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, createSchema)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, createTable)
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func createSchemaIfNotExists(pool *pgxpool.Pool, ctx context.Context) error {
-	createSchema := "CREATE SCHEMA IF NOT EXISTS outbox"
-
-	conn, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
-	defer conn.Release()
-
-	_, err = conn.Exec(ctx, createSchema)
+	err = tx.Commit(ctx)
 	if err != nil {
 		return err
 	}
