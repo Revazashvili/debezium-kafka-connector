@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/revazashvili/debezium-kafka-connector/events"
 	"os"
+	"time"
 )
 
 const dbURL = "postgres://user:pass@localhost:5432/debezium"
@@ -23,27 +24,18 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to setup table: %v\n", err)
 	}
 
-	es := events.GenerateEvents()
-	err = insertOutboxMessages(pool, es, ctx)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
-		return
+	for {
+		time.Sleep(time.Second * 3)
+
+		es := events.GenerateEvents()
+		err = insertOutboxMessages(pool, es, ctx)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+			return
+		}
+
+		fmt.Println("Successfully inserted outbox messages")
 	}
-
-	fmt.Println("Successfully inserted outbox messages")
-
-	//for {
-	//	time.Sleep(time.Second * 3)
-	//
-	//	es := events.GenerateEvents()
-	//	err = insertOutboxMessages(pool, es, ctx)
-	//	if err != nil {
-	//		_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
-	//		return
-	//	}
-	//
-	//	fmt.Println("Successfully inserted outbox messages")
-	//}
 }
 
 func insertOutboxMessages(pool *pgxpool.Pool, messages []events.OutboxMessage, ctx context.Context) error {
