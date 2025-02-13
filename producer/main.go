@@ -14,17 +14,17 @@ const dbURL = "postgres://user:pass@localhost:5432/debezium"
 func main() {
 	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 	}
 
 	err = createSchemaIfNotExists(conn)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create schema: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to create schema: %v\n", err)
 	}
 
 	err = createTableIfNotExists(conn)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create table: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to create table: %v\n", err)
 	}
 
 	for {
@@ -33,7 +33,7 @@ func main() {
 		es := events.GenerateEvents()
 		err = insertOutboxMessages(conn, es)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
 		}
 
 		fmt.Println("Successfully inserted outbox messages")
@@ -52,7 +52,7 @@ func insertOutboxMessages(conn *pgx.Conn, messages []events.OutboxMessage) error
 	defer func(br pgx.BatchResults) {
 		err := br.Close()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to close batch: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Unable to close batch: %v\n", err)
 		}
 	}(br)
 
