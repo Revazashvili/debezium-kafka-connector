@@ -19,9 +19,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	di := NewDbInitializer(pool)
-	store := NewEventsStore(pool)
-	err = di.Init(ctx)
+	pos := NewPostgresOutboxStore(pool)
+	err = pos.Init(ctx)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to setup table: %v\n", err)
 	}
@@ -30,7 +29,7 @@ func main() {
 		time.Sleep(time.Second * 3)
 
 		es := events.GenerateEvents()
-		err = store.Save(es, ctx)
+		err = pos.Save(ctx, es)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
 			return
