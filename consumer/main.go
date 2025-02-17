@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"os"
+	"os/signal"
 )
 
 const (
@@ -32,16 +34,25 @@ func main() {
 
 	fmt.Printf("Subscribed to topics: %s\n", topics)
 	mc := 0
+
+	osc := make(chan os.Signal, 1)
+	signal.Notify(osc, os.Interrupt)
 	for {
-		message, err := c.ReadMessage(-1)
+		select {
+		case <-osc:
+			fmt.Printf("done")
+			return
+		default:
+			message, err := c.ReadMessage(-1)
 
-		if err != nil {
-			fmt.Printf("Error reading message: %s\n", err)
-			continue
+			if err != nil {
+				fmt.Printf("Error reading message: %s\n", err)
+				continue
+			}
+
+			mc++
+			fmt.Println(string(message.Value))
+			fmt.Printf("Consumed Message count: %v \n", mc)
 		}
-
-		mc++
-		fmt.Println(string(message.Value))
-		fmt.Printf("Consumed Message count: %v \n", mc)
 	}
 }
