@@ -22,5 +22,7 @@
   "value.converter":"org.apache.kafka.connect.json.JsonConverter",
   "value.converter.schemas.enable": false,
   "plugin.name": "pgoutput",
-  "topic.prefix": "products"
+  "topic.prefix": "products",
+  "publication.autocreate.mode": "disabled",
+  "publication.name": "outbox_publication"
 }
