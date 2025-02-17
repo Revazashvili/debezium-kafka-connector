@@ -37,6 +37,7 @@ func main() {
 
 		if err != nil {
 			fmt.Printf("Error reading message: %s\n", err)
+			continue
 		}
 
 		mc++
