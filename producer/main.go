@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/revazashvili/debezium-kafka-connector/events"
 	"os"
-	"time"
+	"os/signal"
 )
 
 const dbURL = "postgres://user:pass@localhost:5432/debezium"
@@ -25,16 +25,23 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "Unable to setup table: %v\n", err)
 	}
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
 	for {
-		time.Sleep(time.Second * 3)
-
-		es := events.GenerateEvents()
-		err = pos.Save(ctx, es)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+		select {
+		case <-c:
+			fmt.Println("done")
 			return
-		}
+		default:
+			es := events.GenerateEvents()
+			err = pos.Save(ctx, es)
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Unable to insert outbox messages: %v\n", err)
+				return
+			}
 
-		fmt.Println("Successfully inserted outbox messages")
+			fmt.Println("Successfully inserted outbox messages")
+		}
 	}
 }
