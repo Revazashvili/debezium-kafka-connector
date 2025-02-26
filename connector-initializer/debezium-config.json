@@ -23,6 +23,5 @@
   "value.converter.schemas.enable": false,
   "plugin.name": "pgoutput",
   "topic.prefix": "products",
-  "publication.autocreate.mode": "disabled",
-  "publication.name": "outbox_publication"
+  "publication.autocreate.mode": "filtered"
 }
